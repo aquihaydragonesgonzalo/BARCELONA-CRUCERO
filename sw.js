@@ -37,7 +37,8 @@ self.addEventListener('fetch', (event) => {
 
   // 1. ESTRATEGIA PARA MAPAS (Leaflet Tiles): Cache First
   // Guardamos las teselas del mapa agresivamente para uso offline.
-  if (url.host.includes('cartocdn.com') || url.host.includes('openstreetmap.org')) {
+  // Añadido arcgisonline.com para las tiles de satélite
+  if (url.host.includes('cartocdn.com') || url.host.includes('openstreetmap.org') || url.host.includes('arcgisonline.com')) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
         return cache.match(event.request).then((response) => {

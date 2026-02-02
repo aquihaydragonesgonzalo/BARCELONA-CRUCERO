@@ -3,8 +3,7 @@ import * as L from 'leaflet';
 import { ItineraryItem, UserLocation, Coords } from '../types';
 import { GPX_WAYPOINTS, BARCELONA_TRACK } from '../constants';
 
-// Fix Leaflet's default icon path issues in some bundlers, though CDN usage makes this less critical
-// but good for safety if we ever switch to local assets.
+// Fix Leaflet's default icon path issues in some bundlers
 const defaultIcon = L.icon({
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -25,16 +24,37 @@ export const MapComponent: React.FC<MapComponentProps> = ({ activities, userLoca
     const userAccuracyCircleRef = useRef<L.Circle | null>(null);
     const staticLayersRef = useRef<L.LayerGroup | null>(null);
 
-    // Initialize Map
+    // Initialize Map with Layers
     useEffect(() => {
         if (!mapContainerRef.current || mapInstanceRef.current) return;
         
-        const map = L.map(mapContainerRef.current, { zoomControl: false }).setView([41.38, 2.17], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { 
+        // 1. Capa Callejero (Voyager)
+        const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { 
             maxZoom: 18, 
             attribution: '&copy; OpenStreetMap' 
-        }).addTo(map);
+        });
+
+        // 2. Capa Satélite (Esri World Imagery)
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri'
+        });
+
+        // Inicializar mapa con la capa callejero por defecto
+        const map = L.map(mapContainerRef.current, { 
+            zoomControl: false,
+            layers: [streetLayer] 
+        }).setView([41.38, 2.17], 13);
         
+        // Control de Capas (arriba a la derecha)
+        const baseMaps = {
+            "Mapa": streetLayer,
+            "Satélite": satelliteLayer
+        };
+        
+        // Añadir control de capas con estilo customizado vía CSS global si fuera necesario, 
+        // pero el defecto de Leaflet funciona bien.
+        L.control.layers(baseMaps, undefined, { position: 'topright' }).addTo(map);
+
         staticLayersRef.current = L.layerGroup().addTo(map);
         mapInstanceRef.current = map;
         
