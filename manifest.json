@@ -1,0 +1,21 @@
+{
+  "name": "Barcelona 2026 Guía",
+  "short_name": "BCN 2026",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e3a8a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgTO8Unw1Rh2yVa2JGn5EqDKRRzmCWqYcp-Cfs83S-XE510ErtaNkBMj73Ucv0qXmgv_7NJRKH6olpiE1Bf4uBBln1jiHfaAKuk_RgrVaISXO1K6HJwZ30r8SqkyV1f7eCCLVlb1UXAry6yfi7k2rNhmJzjYjrE3jBwxFN5462NoLZRPU67Z792PDZUr2o/s192/Gemini_Generated_Image_gn7f5hgn7f5hgn7f.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgTO8Unw1Rh2yVa2JGn5EqDKRRzmCWqYcp-Cfs83S-XE510ErtaNkBMj73Ucv0qXmgv_7NJRKH6olpiE1Bf4uBBln1jiHfaAKuk_RgrVaISXO1K6HJwZ30r8SqkyV1f7eCCLVlb1UXAry6yfi7k2rNhmJzjYjrE3jBwxFN5462NoLZRPU67Z792PDZUr2o/s512/Gemini_Generated_Image_gn7f5hgn7f5hgn7f.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

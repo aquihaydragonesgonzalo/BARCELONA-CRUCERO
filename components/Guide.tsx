@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
     Activity as ActivityIcon, Clock, Timer, Landmark, Footprints, 
     Navigation, Thermometer, Sun, Cloud, CloudRain, CloudLightning, 
-    Wind, CalendarDays, PhoneCall, Send, Languages, Volume2 
+    Wind, CalendarDays, PhoneCall, Send, Languages, Volume2, WifiOff 
 } from 'lucide-react';
 import { PRONUNCIATIONS } from '../constants';
 import { UserLocation, WeatherData } from '../types';
@@ -15,6 +15,7 @@ export const Guide: React.FC<GuideProps> = ({ userLocation }) => {
     const [playing, setPlaying] = useState<string | null>(null);
     const [weather, setWeather] = useState<WeatherData | null>(null);
     const [loadingWeather, setLoadingWeather] = useState(true);
+    const [isOffline, setIsOffline] = useState(false);
 
     useEffect(() => {
         const fetchWeather = async () => {
@@ -22,12 +23,23 @@ export const Guide: React.FC<GuideProps> = ({ userLocation }) => {
             const response = await fetch(
             'https://api.open-meteo.com/v1/forecast?latitude=41.38&longitude=2.17&hourly=temperature_2m,weathercode&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Europe%2FMadrid'
             );
+            
+            if (!response.ok) throw new Error('Network error');
+            
             const data = await response.json();
+            if (data.error) throw new Error(data.error);
+
             setWeather({
                 hourly: { time: data.hourly.time, temperature: data.hourly.temperature_2m, code: data.hourly.weathercode },
                 daily: { time: data.daily.time, weathercode: data.daily.weathercode, temperature_2m_max: data.daily.temperature_2m_max, temperature_2m_min: data.daily.temperature_2m_min }
             });
-        } catch (error) { console.error("Clima error:", error); } finally { setLoadingWeather(false); }
+            setIsOffline(false);
+        } catch (error) { 
+            console.error("Clima error:", error);
+            setIsOffline(true);
+        } finally { 
+            setLoadingWeather(false); 
+        }
         };
         fetchWeather();
     }, []);
@@ -129,8 +141,14 @@ export const Guide: React.FC<GuideProps> = ({ userLocation }) => {
             <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">BCN</span>
             </div>
             
-            {loadingWeather || !weather ? (
-            <div className="h-32 bg-white rounded-3xl animate-pulse border border-blue-50"></div>
+            {loadingWeather ? (
+                <div className="h-32 bg-white rounded-3xl animate-pulse border border-blue-50"></div>
+            ) : isOffline || !weather ? (
+                <div className="bg-slate-100 rounded-[2rem] p-6 text-center border border-slate-200">
+                    <div className="flex justify-center mb-2"><WifiOff size={24} className="text-slate-400" /></div>
+                    <p className="text-sm font-bold text-slate-500">Sin conexión</p>
+                    <p className="text-xs text-slate-400 mt-1">La información del clima no está disponible offline.</p>
+                </div>
             ) : (
             <div className="space-y-4">
                 {/* Hourly */}
