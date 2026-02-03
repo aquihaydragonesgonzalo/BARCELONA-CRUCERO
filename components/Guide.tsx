@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
     Activity as ActivityIcon, Clock, Timer, Landmark, Footprints, 
     Navigation, Thermometer, Sun, Cloud, CloudRain, CloudLightning, 
-    Wind, CalendarDays, PhoneCall, Send, Languages, Volume2, WifiOff 
+    Wind, CalendarDays, PhoneCall, Send, Languages, Volume2, WifiOff, FileDown 
 } from 'lucide-react';
-import { PRONUNCIATIONS } from '../constants';
+import { jsPDF } from "jspdf";
+import { PRONUNCIATIONS, INITIAL_ITINERARY, DATE_OF_VISIT } from '../constants';
 import { UserLocation, WeatherData } from '../types';
 
 interface GuideProps {
@@ -56,6 +57,147 @@ export const Guide: React.FC<GuideProps> = ({ userLocation }) => {
         }
     };
 
+    const handleGeneratePDF = () => {
+        const doc = new jsPDF();
+        
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        const margin = 20;
+        const timeColWidth = 25;
+        const contentX = margin + timeColWidth + 5;
+        const contentWidth = pageWidth - contentX - margin;
+        
+        let y = 20;
+
+        // Helper: Check for page break
+        const checkPageBreak = (neededHeight: number) => {
+            if (y + neededHeight > pageHeight - 20) {
+                doc.addPage();
+                y = 20;
+                // Reprint simple header on new page
+                doc.setFontSize(8);
+                doc.setTextColor(150);
+                doc.text("Barcelona 2026 - Itinerario (Cont.)", margin, 10);
+            }
+        };
+
+        // Header
+        doc.setFontSize(22);
+        doc.setTextColor(30, 58, 138); // Blue
+        doc.setFont("helvetica", "bold");
+        doc.text("BARCELONA 2026", margin, y);
+        y += 8;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Guía de Escala | ${DATE_OF_VISIT}`, margin, y);
+        y += 15;
+
+        // Separator
+        doc.setDrawColor(30, 58, 138);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y - 5, pageWidth - margin, y - 5);
+
+        // Itinerary Loop
+        INITIAL_ITINERARY.forEach((item, index) => {
+            // Data Prep: Remove emojis that break standard PDF fonts
+            const cleanTitle = item.title;
+            const cleanDesc = item.description.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+            const cleanDetails = item.keyDetails.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+            const priceTxt = item.priceEUR > 0 ? `${item.priceEUR.toFixed(2)}€` : "GRATIS";
+            
+            // Calculate Heights (Text Wrapping)
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            const titleLines = doc.splitTextToSize(cleanTitle, contentWidth);
+            
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            const descLines = doc.splitTextToSize(cleanDesc, contentWidth);
+            const detailLines = doc.splitTextToSize(`TIP: ${cleanDetails}`, contentWidth);
+
+            const titleH = titleLines.length * 5;
+            const descH = descLines.length * 4;
+            const detailH = detailLines.length * 4;
+            const metaH = 5;
+            const spacing = 8;
+            
+            const totalH = titleH + descH + detailH + metaH + spacing;
+
+            checkPageBreak(totalH);
+
+            // Left Col: Time
+            doc.setFontSize(10);
+            doc.setTextColor(30, 58, 138);
+            doc.setFont("helvetica", "bold");
+            doc.text(item.startTime, margin, y + 4);
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.setFont("helvetica", "normal");
+            doc.text(item.endTime, margin, y + 8);
+
+            // Timeline graphics
+            doc.setDrawColor(200);
+            if (index < INITIAL_ITINERARY.length - 1) {
+                doc.line(margin + 18, y + 2, margin + 18, y + totalH);
+            }
+            doc.setFillColor(30, 58, 138);
+            doc.circle(margin + 18, y + 4, 1.5, 'F');
+
+            // Right Col: Content
+            // Title
+            doc.setTextColor(0);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text(titleLines, contentX, y + 4);
+            let curY = y + 4 + titleH;
+
+            // Meta (Location | Price)
+            doc.setTextColor(100);
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "bold");
+            doc.text(`${item.locationName}  •  ${priceTxt}  •  ${item.type.toUpperCase()}`, contentX, curY - 1);
+            curY += 4;
+
+            // Desc
+            doc.setTextColor(50);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(descLines, contentX, curY);
+            curY += descH;
+
+            // Details
+            doc.setTextColor(30, 58, 138);
+            doc.setFont("helvetica", "italic");
+            doc.text(detailLines, contentX, curY);
+
+            // Contingency/Warning
+            if (item.notes === 'CRITICAL' || item.contingencyNote) {
+                curY += detailH + 2;
+                doc.setTextColor(220, 38, 38); // Red
+                doc.setFont("helvetica", "bold");
+                const note = item.notes === 'CRITICAL' ? "⚠️ HORARIO CRÍTICO" : `⚠️ ${item.contingencyNote}`;
+                // Strip emoji for PDF
+                const cleanNote = note.replace(/⚠️/g, "(!)");
+                doc.text(cleanNote, contentX, curY);
+            }
+
+            y += totalH;
+        });
+
+        // Page Numbers
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Página ${i} de ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        }
+
+        doc.save("Barcelona2026_Itinerario.pdf");
+    };
+
     const getWeatherIcon = (code: number, size = 20) => {
         if (code <= 1) return <Sun size={size} className="text-amber-500" />;
         if (code <= 3) return <Cloud size={size} className="text-slate-400" />;
@@ -73,7 +215,15 @@ export const Guide: React.FC<GuideProps> = ({ userLocation }) => {
 
     return (
         <div className="pb-32 px-4 pt-6 max-w-lg mx-auto h-full overflow-y-auto no-scrollbar">
-        <h2 className="text-2xl font-bold text-blue-900 mb-6 uppercase tracking-tight">Guía Barcelona</h2>
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-blue-900 uppercase tracking-tight">Guía Barcelona</h2>
+            <button 
+                onClick={handleGeneratePDF}
+                className="flex items-center gap-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-200 transition-colors shadow-sm active:scale-95"
+            >
+                <FileDown size={16} /> Descargar PDF
+            </button>
+        </div>
 
         {/* Resumen de la Visita */}
         <div className="mb-10">
