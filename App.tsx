@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     CalendarClock, Map as MapIcon, Wallet, BookOpen, Anchor, 
-    Headphones, X, Play, Square 
+    Headphones, X, Play, Square, Navigation 
 } from 'lucide-react';
 import { Timeline } from './components/Timeline';
 import { Budget } from './components/Budget';
@@ -94,9 +94,17 @@ const App: React.FC = () => {
                         <p className="text-[12px] font-bold text-white/90 leading-tight">12 Abril 2026</p>
                     </div>
                 </div>
-                <div className="flex flex-col items-end">
-                    <span className="text-[8px] font-black uppercase text-amber-400 tracking-widest mb-0.5">Límite Embarque</span>
-                    <div className="text-lg font-black font-mono text-white leading-none tracking-tighter">{countdown}</div>
+                <div className="flex items-center gap-3">
+                    {userLocation && (
+                        <div className="flex items-center text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded-full border border-emerald-500/30">
+                            <Navigation size={10} className="animate-pulse mr-1" />
+                            <span className="text-[8px] font-black uppercase tracking-widest">GPS ON</span>
+                        </div>
+                    )}
+                    <div className="flex flex-col items-end">
+                        <span className="text-[8px] font-black uppercase text-amber-400 tracking-widest mb-0.5">Límite Embarque</span>
+                        <div className="text-lg font-black font-mono text-white leading-none tracking-tighter">{countdown}</div>
+                    </div>
                 </div>
             </header>
 

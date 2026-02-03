@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Clock, CheckCircle2, Circle, MapPin, AlertTriangle, AlertCircle, 
-    Navigation, ExternalLink, Headphones 
+    Navigation, ExternalLink, Headphones, ArrowUp 
 } from 'lucide-react';
 import { ItineraryItem, Coords } from '../types';
 
@@ -45,7 +45,41 @@ const calculateTimeProgress = (startTime: string, endTime: string) => {
   return Math.min(100, Math.max(0, ((currentMinutes - startMinutes) / (endMinutes - startMinutes)) * 100));
 };
 
-export const Timeline: React.FC<TimelineProps> = ({ itinerary, onToggleComplete, onLocate, onOpenAudioGuide }) => {
+// --- Geo Math Helpers ---
+const toRad = (value: number) => (value * Math.PI) / 180;
+const toDeg = (value: number) => (value * 180) / Math.PI;
+
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // returns km
+};
+
+const calculateBearing = (startLat: number, startLng: number, destLat: number, destLng: number) => {
+    const startLatRad = toRad(startLat);
+    const startLngRad = toRad(startLng);
+    const destLatRad = toRad(destLat);
+    const destLngRad = toRad(destLng);
+
+    const y = Math.sin(destLngRad - startLngRad) * Math.cos(destLatRad);
+    const x = Math.cos(startLatRad) * Math.sin(destLatRad) -
+              Math.sin(startLatRad) * Math.cos(destLatRad) * Math.cos(destLngRad - startLngRad);
+    const brng = toDeg(Math.atan2(y, x));
+    return (brng + 360) % 360;
+};
+
+const formatDist = (km: number) => {
+    if (km < 1) return `${Math.round(km * 1000)} m`;
+    return `${km.toFixed(1)} km`;
+};
+// ------------------------
+
+export const Timeline: React.FC<TimelineProps> = ({ itinerary, onToggleComplete, onLocate, onOpenAudioGuide, userLocation }) => {
   const [, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick(n => n + 1), 60000); return () => clearInterval(t); }, []);
 
@@ -72,6 +106,19 @@ export const Timeline: React.FC<TimelineProps> = ({ itinerary, onToggleComplete,
           const actProgress = calculateTimeProgress(act.startTime, act.endTime);
           const gapProgress = prevAct ? calculateTimeProgress(prevAct.endTime, act.startTime) : 0;
           
+          // Distance & Bearing Logic
+          let distanceDisplay = null;
+          let bearingRotation = 0;
+          
+          if (userLocation && act.coords && !act.completed) {
+            const dist = calculateDistance(userLocation.lat, userLocation.lng, act.coords.lat, act.coords.lng);
+            // Increased threshold to 10,000 km for testing visibility from anywhere
+            if (dist < 10000) {
+                distanceDisplay = formatDist(dist);
+                bearingRotation = calculateBearing(userLocation.lat, userLocation.lng, act.coords.lat, act.coords.lng);
+            }
+          }
+
           return (
             <React.Fragment key={act.id}>
               {gap > 0 && prevAct && (
@@ -118,9 +165,20 @@ export const Timeline: React.FC<TimelineProps> = ({ itinerary, onToggleComplete,
                         {isCritical && <AlertTriangle className="text-rose-600 animate-pulse" size={20} />}
                         </div>
 
-                        <div className="mb-3 text-sm text-slate-600 flex items-center">
-                            <MapPin size={14} className="mr-0.5 text-blue-700"/> 
-                            <span className="font-medium">{act.locationName}</span>
+                        <div className="mb-3 flex items-center justify-between">
+                            <div className="text-sm text-slate-600 flex items-center truncate mr-2">
+                                <MapPin size={14} className="mr-0.5 text-blue-700 shrink-0"/> 
+                                <span className="font-medium truncate">{act.locationName}</span>
+                            </div>
+                            
+                            {distanceDisplay && (
+                                <div className="flex items-center bg-blue-900 text-white px-2 py-1 rounded-lg shadow-sm shrink-0">
+                                    <div style={{ transform: `rotate(${bearingRotation}deg)` }} className="transition-transform duration-500 mr-1.5 flex items-center justify-center">
+                                        <ArrowUp size={12} strokeWidth={3} />
+                                    </div>
+                                    <span className="text-[10px] font-bold tabular-nums tracking-tight">{distanceDisplay}</span>
+                                </div>
+                            )}
                         </div>
 
                         <p className="text-sm text-slate-600 mb-4 leading-relaxed whitespace-pre-line">{act.description}</p>

@@ -6,7 +6,7 @@
     <title>Barcelona 2026 | Guía PWA</title>
     
     <!-- PWA Meta Tags -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="manifest.json">
     <link rel="icon" href="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgTO8Unw1Rh2yVa2JGn5EqDKRRzmCWqYcp-Cfs83S-XE510ErtaNkBMj73Ucv0qXmgv_7NJRKH6olpiE1Bf4uBBln1jiHfaAKuk_RgrVaISXO1K6HJwZ30r8SqkyV1f7eCCLVlb1UXAry6yfi7k2rNhmJzjYjrE3jBwxFN5462NoLZRPU67Z792PDZUr2o/s320/Gemini_Generated_Image_gn7f5hgn7f5hgn7f.png" />
     <meta name="theme-color" content="#1e3a8a">
     <meta name="mobile-web-app-capable" content="yes">
@@ -97,7 +97,8 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
+          // Changed to relative path for GitHub Pages compatibility
+          navigator.serviceWorker.register('./sw.js')
             .then(reg => console.log('SW registrado', reg))
             .catch(err => console.log('Error SW', err));
         });
