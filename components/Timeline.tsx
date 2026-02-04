@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Clock, CheckCircle2, Circle, MapPin, AlertTriangle, AlertCircle, 
-    Navigation, ExternalLink, Headphones, ArrowUp 
+    Navigation, ExternalLink, Headphones, ArrowUp, LocateFixed 
 } from 'lucide-react';
 import { ItineraryItem, Coords } from '../types';
 
@@ -106,9 +106,13 @@ export const Timeline: React.FC<TimelineProps> = ({ itinerary, onToggleComplete,
           const actProgress = calculateTimeProgress(act.startTime, act.endTime);
           const gapProgress = prevAct ? calculateTimeProgress(prevAct.endTime, act.startTime) : 0;
           
+          // Logic for Active State (In Progress)
+          const isOngoing = actProgress > 0 && actProgress < 100;
+          
           // Distance & Bearing Logic
           let distanceDisplay = null;
           let bearingRotation = 0;
+          let isNearby = false;
           
           if (userLocation && act.coords && !act.completed) {
             const dist = calculateDistance(userLocation.lat, userLocation.lng, act.coords.lat, act.coords.lng);
@@ -116,11 +120,16 @@ export const Timeline: React.FC<TimelineProps> = ({ itinerary, onToggleComplete,
             if (dist < 10000) {
                 distanceDisplay = formatDist(dist);
                 bearingRotation = calculateBearing(userLocation.lat, userLocation.lng, act.coords.lat, act.coords.lng);
+                // Si está a menos de 500 metros
+                if (dist < 0.5) {
+                    isNearby = true;
+                }
             }
           }
 
           return (
             <React.Fragment key={act.id}>
+              {/* Gap / Traslado */}
               {gap > 0 && prevAct && (
                 <div className="relative ml-0 my-8">
                     <div className="absolute left-[-2px] top-[-20px] bottom-[-20px] border-l-2 border-dashed border-blue-200"></div>
@@ -131,8 +140,11 @@ export const Timeline: React.FC<TimelineProps> = ({ itinerary, onToggleComplete,
                                     <Clock size={12} className="text-blue-600" />
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest leading-none mb-1">Traslado</span>
-                                    <span className="text-[10px] font-bold text-blue-600 uppercase">{formatMinutes(gap)}</span>
+                                    <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest leading-none mb-1">Tiempo de Traslado</span>
+                                    <span className="text-[10px] font-bold text-blue-600 uppercase flex items-center gap-2">
+                                        {formatMinutes(gap)} 
+                                        {gapProgress > 0 && gapProgress < 100 && <span className="text-[8px] bg-blue-100 px-1 rounded animate-pulse">EN CAMINO</span>}
+                                    </span>
                                 </div>
                             </div>
                             <div className="w-full h-1 bg-blue-50 rounded-full overflow-hidden">
@@ -143,21 +155,30 @@ export const Timeline: React.FC<TimelineProps> = ({ itinerary, onToggleComplete,
                 </div>
               )}
 
+              {/* Activity Card */}
               <div className="mb-8 ml-6 relative">
-                <div className={`absolute -left-[31px] top-0 rounded-full bg-white border-2 cursor-pointer transition-all z-10 ${act.completed ? 'border-emerald-500 text-emerald-500 shadow-sm' : 'border-blue-700 text-blue-700 shadow-sm'}`} onClick={() => onToggleComplete(act.id)}>
+                <div className={`absolute -left-[31px] top-0 rounded-full bg-white border-2 cursor-pointer transition-all z-10 ${act.completed ? 'border-emerald-500 text-emerald-500 shadow-sm' : isOngoing ? 'border-blue-600 text-blue-600 scale-110 shadow-md ring-2 ring-blue-100' : 'border-blue-700 text-blue-700 shadow-sm'}`} onClick={() => onToggleComplete(act.id)}>
                     {act.completed ? <CheckCircle2 size={24} /> : <Circle size={24} />}
                 </div>
 
-                <div className={`rounded-2xl border shadow-sm transition-all overflow-hidden bg-white ${act.completed ? 'opacity-70' : 'shadow-md'} ${isCritical ? 'border-rose-600 bg-rose-50/20' : 'border-blue-50'}`}>
+                <div className={`
+                    rounded-2xl border transition-all overflow-hidden bg-white
+                    ${act.completed ? 'opacity-70 shadow-sm' : ''} 
+                    ${isCritical ? 'border-rose-200 bg-rose-50/10' : ''}
+                    ${isOngoing ? 'ring-2 ring-blue-400 ring-offset-1 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.25)] scale-[1.01]' : 'border-blue-50 shadow-md'}
+                `}>
+                    {/* Progress Bar */}
                     <div className="w-full h-1.5 bg-blue-50 overflow-hidden">
-                        <div className={`h-full transition-all duration-1000 ${actProgress === 100 ? 'bg-slate-300' : 'bg-blue-800'}`} style={{ width: `${actProgress}%` }}></div>
+                        <div className={`h-full transition-all duration-1000 ${actProgress === 100 ? 'bg-slate-300' : isOngoing ? 'bg-blue-600' : 'bg-blue-800'}`} style={{ width: `${actProgress}%` }}></div>
                     </div>
 
                     <div className="p-5">
                         <div className="flex justify-between items-start mb-2">
                         <div>
                             <div className="flex items-center space-x-2 mb-2">
-                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 tracking-tighter uppercase">{act.startTime} - {act.endTime}</span>
+                                <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-tighter uppercase ${isOngoing ? 'bg-blue-600 text-white shadow-sm' : 'bg-blue-100 text-blue-800'}`}>
+                                    {act.startTime} - {act.endTime}
+                                </span>
                                 <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">{duration}</span>
                             </div>
                             <h3 className="font-bold text-lg text-slate-800 leading-tight">{act.title}</h3>
@@ -172,11 +193,17 @@ export const Timeline: React.FC<TimelineProps> = ({ itinerary, onToggleComplete,
                             </div>
                             
                             {distanceDisplay && (
-                                <div className="flex items-center bg-blue-900 text-white px-2 py-1 rounded-lg shadow-sm shrink-0">
-                                    <div style={{ transform: `rotate(${bearingRotation}deg)` }} className="transition-transform duration-500 mr-1.5 flex items-center justify-center">
-                                        <ArrowUp size={12} strokeWidth={3} />
-                                    </div>
-                                    <span className="text-[10px] font-bold tabular-nums tracking-tight">{distanceDisplay}</span>
+                                <div className={`flex items-center px-2 py-1 rounded-lg shadow-sm shrink-0 transition-colors ${isNearby ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-blue-900 text-white'}`}>
+                                    {isNearby ? (
+                                        <LocateFixed size={12} className="mr-1.5 animate-pulse" />
+                                    ) : (
+                                        <div style={{ transform: `rotate(${bearingRotation}deg)` }} className="transition-transform duration-500 mr-1.5 flex items-center justify-center">
+                                            <ArrowUp size={12} strokeWidth={3} />
+                                        </div>
+                                    )}
+                                    <span className="text-[10px] font-bold tabular-nums tracking-tight">
+                                        {isNearby ? "LLEGANDO" : distanceDisplay}
+                                    </span>
                                 </div>
                             )}
                         </div>
