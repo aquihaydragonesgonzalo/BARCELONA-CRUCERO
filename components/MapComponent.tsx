@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as L from 'leaflet';
-import { ItineraryItem, UserLocation, Coords } from '../types';
+import { Plus, X } from 'lucide-react';
+import { ItineraryItem, UserLocation, Coords, CustomWaypoint } from '../types';
 import { GPX_WAYPOINTS, BARCELONA_TRACK } from '../constants';
 
 // Fix Leaflet's default icon path issues in some bundlers
@@ -11,18 +12,41 @@ const defaultIcon = L.icon({
     iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34],
 });
 
+// Custom Icon for User Waypoints (Violet)
+const customIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+
 interface MapComponentProps {
     activities: ItineraryItem[];
     userLocation: UserLocation | null;
     focusedLocation: Coords | null;
+    customWaypoints?: CustomWaypoint[];
+    onAddWaypoint?: (coords: Coords) => void;
+    onDeleteWaypoint?: (id: string) => void;
 }
 
-export const MapComponent: React.FC<MapComponentProps> = ({ activities, userLocation, focusedLocation }) => {
+export const MapComponent: React.FC<MapComponentProps> = ({ 
+    activities, 
+    userLocation, 
+    focusedLocation, 
+    customWaypoints = [], 
+    onAddWaypoint, 
+    onDeleteWaypoint 
+}) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
     const userMarkerRef = useRef<L.Marker | null>(null);
     const userAccuracyCircleRef = useRef<L.Circle | null>(null);
     const staticLayersRef = useRef<L.LayerGroup | null>(null);
+    const customLayersRef = useRef<L.LayerGroup | null>(null);
+    
+    const [isAddMode, setIsAddMode] = useState(false);
 
     // Initialize Map with Layers
     useEffect(() => {
@@ -51,11 +75,10 @@ export const MapComponent: React.FC<MapComponentProps> = ({ activities, userLoca
             "Satélite": satelliteLayer
         };
         
-        // Añadir control de capas con estilo customizado vía CSS global si fuera necesario, 
-        // pero el defecto de Leaflet funciona bien.
         L.control.layers(baseMaps, undefined, { position: 'topright' }).addTo(map);
 
         staticLayersRef.current = L.layerGroup().addTo(map);
+        customLayersRef.current = L.layerGroup().addTo(map);
         mapInstanceRef.current = map;
         
         return () => {
@@ -63,6 +86,80 @@ export const MapComponent: React.FC<MapComponentProps> = ({ activities, userLoca
             mapInstanceRef.current = null;
         };
     }, []);
+
+    // Handle Map Click for Adding Waypoint
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        const clickHandler = (e: L.LeafletMouseEvent) => {
+            if (isAddMode && onAddWaypoint) {
+                onAddWaypoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+                setIsAddMode(false); // Disable add mode after click
+            }
+        };
+
+        map.on('click', clickHandler);
+
+        // Change cursor style based on mode
+        const container = map.getContainer();
+        if (isAddMode) {
+            container.style.cursor = 'crosshair';
+        } else {
+            container.style.cursor = '';
+        }
+
+        return () => {
+            map.off('click', clickHandler);
+        };
+    }, [isAddMode, onAddWaypoint]);
+
+    // Update Custom Waypoints
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        const customGroup = customLayersRef.current;
+        if (!map || !customGroup) return;
+
+        customGroup.clearLayers();
+
+        customWaypoints.forEach(wp => {
+            const marker = L.marker([wp.coords.lat, wp.coords.lng], { icon: customIcon });
+            
+            // Create a container for the popup content
+            const popupContent = document.createElement('div');
+            popupContent.style.padding = '4px';
+            popupContent.style.minWidth = '140px';
+            popupContent.style.fontFamily = "'Roboto Condensed', sans-serif";
+            
+            popupContent.innerHTML = `
+                <h3 style="margin: 0 0 4px 0; font-weight: 800; color: #7c3aed; font-size: 14px; text-transform: uppercase;">${wp.title}</h3>
+                <p style="margin: 0 0 8px 0; font-size: 11px; color: #64748b;">Añadido por ti</p>
+            `;
+
+            if (onDeleteWaypoint) {
+                const btn = document.createElement('button');
+                btn.innerText = 'ELIMINAR';
+                btn.style.width = '100%';
+                btn.style.backgroundColor = '#fee2e2';
+                btn.style.color = '#dc2626';
+                btn.style.border = 'none';
+                btn.style.padding = '6px';
+                btn.style.borderRadius = '6px';
+                btn.style.fontSize = '10px';
+                btn.style.fontWeight = '700';
+                btn.style.cursor = 'pointer';
+                btn.onclick = () => {
+                    onDeleteWaypoint(wp.id);
+                    map.closePopup();
+                };
+                popupContent.appendChild(btn);
+            }
+
+            marker.bindPopup(popupContent);
+            customGroup.addLayer(marker);
+        });
+
+    }, [customWaypoints, onDeleteWaypoint]);
 
     // Update Static Layers (Activities, Track, Waypoints)
     useEffect(() => {
@@ -157,5 +254,28 @@ export const MapComponent: React.FC<MapComponentProps> = ({ activities, userLoca
         }
     }, [focusedLocation]);
 
-    return <div ref={mapContainerRef} className="w-full h-full z-0" />;
+    return (
+        <div className="relative w-full h-full">
+            <div ref={mapContainerRef} className="w-full h-full z-0" />
+            
+            {/* Add Waypoint FAB */}
+            <div className="absolute bottom-24 right-4 z-[400] flex flex-col items-end gap-3">
+                {isAddMode && (
+                    <div className="bg-slate-900/80 backdrop-blur text-white text-[10px] font-bold py-1.5 px-3 rounded-xl shadow-lg mb-1 animate-in fade-in slide-in-from-right-5">
+                        Toca en el mapa
+                    </div>
+                )}
+                <button 
+                    onClick={() => setIsAddMode(!isAddMode)}
+                    className={`p-3.5 rounded-2xl shadow-xl transition-all active:scale-95 ${
+                        isAddMode 
+                        ? 'bg-rose-500 text-white rotate-45' 
+                        : 'bg-white text-blue-900'
+                    }`}
+                >
+                    <Plus size={24} strokeWidth={3} />
+                </button>
+            </div>
+        </div>
+    );
 };

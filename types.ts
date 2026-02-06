@@ -33,6 +33,13 @@ export interface Waypoint {
   lng: number;
 }
 
+export interface CustomWaypoint {
+  id: string;
+  title: string;
+  coords: Coords;
+  timestamp: number;
+}
+
 export interface Pronunciation {
   word: string;
   phonetic: string;

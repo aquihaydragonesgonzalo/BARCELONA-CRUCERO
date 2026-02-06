@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     CalendarClock, Map as MapIcon, Wallet, BookOpen, Anchor, 
-    Headphones, X, Play, Square, Navigation, Settings, Bell, BellRing, Clock 
+    Headphones, X, Play, Square, Navigation, Settings, Bell, BellRing, Clock, MapPin, Save 
 } from 'lucide-react';
 import { Timeline } from './components/Timeline';
 import { Budget } from './components/Budget';
 import { Guide } from './components/Guide';
 import { MapComponent } from './components/MapComponent';
 import { INITIAL_ITINERARY, SHIP_ONBOARD_TIME } from './constants';
-import { ItineraryItem, UserLocation, Coords, NotificationSettings } from './types';
+import { ItineraryItem, UserLocation, Coords, NotificationSettings, CustomWaypoint } from './types';
 
 const App: React.FC = () => {
     const [itinerary, setItinerary] = useState<ItineraryItem[]>(INITIAL_ITINERARY);
@@ -36,10 +36,27 @@ const App: React.FC = () => {
         }
     });
 
-    // Save Settings
+    // Custom Waypoints State
+    const [customWaypoints, setCustomWaypoints] = useState<CustomWaypoint[]>(() => {
+        try {
+            const saved = localStorage.getItem('barcelona_custom_waypoints');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+    const [isAddWaypointModalOpen, setIsAddWaypointModalOpen] = useState(false);
+    const [newWaypointCoords, setNewWaypointCoords] = useState<Coords | null>(null);
+    const [newWaypointTitle, setNewWaypointTitle] = useState('');
+
+    // Save Settings & Waypoints
     useEffect(() => {
         localStorage.setItem('barcelona_notification_settings', JSON.stringify(notificationSettings));
     }, [notificationSettings]);
+
+    useEffect(() => {
+        localStorage.setItem('barcelona_custom_waypoints', JSON.stringify(customWaypoints));
+    }, [customWaypoints]);
 
     // Request Permissions
     const requestNotificationPermission = async () => {
@@ -171,6 +188,31 @@ const App: React.FC = () => {
         setItinerary(itinerary.map(a => a.id === id ? {...a, completed: !a.completed} : a)); 
     };
 
+    // Custom Waypoint Handlers
+    const handleMapClickForWaypoint = (coords: Coords) => {
+        setNewWaypointCoords(coords);
+        setNewWaypointTitle('');
+        setIsAddWaypointModalOpen(true);
+    };
+
+    const handleSaveWaypoint = () => {
+        if (newWaypointCoords && newWaypointTitle) {
+            const newWaypoint: CustomWaypoint = {
+                id: Date.now().toString(),
+                title: newWaypointTitle,
+                coords: newWaypointCoords,
+                timestamp: Date.now()
+            };
+            setCustomWaypoints(prev => [...prev, newWaypoint]);
+            setIsAddWaypointModalOpen(false);
+            setNewWaypointCoords(null);
+        }
+    };
+
+    const handleDeleteWaypoint = (id: string) => {
+        setCustomWaypoints(prev => prev.filter(wp => wp.id !== id));
+    };
+
     return (
         <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
             {/* Header */}
@@ -216,6 +258,9 @@ const App: React.FC = () => {
                         activities={itinerary} 
                         userLocation={userLocation} 
                         focusedLocation={mapFocus} 
+                        customWaypoints={customWaypoints}
+                        onAddWaypoint={handleMapClickForWaypoint}
+                        onDeleteWaypoint={handleDeleteWaypoint}
                     />
                 )}
                 {activeTab === 'budget' && <Budget itinerary={itinerary} />}
@@ -374,6 +419,42 @@ const App: React.FC = () => {
                                 )}
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* Add Waypoint Modal */}
+                {isAddWaypointModalOpen && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                         <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+                             <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-black text-lg text-blue-900 uppercase tracking-tight flex items-center gap-2">
+                                    <MapPin size={20} /> Nuevo Punto
+                                </h3>
+                                <button onClick={() => setIsAddWaypointModalOpen(false)} className="bg-slate-100 p-2 rounded-full text-slate-500 hover:bg-slate-200 transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            
+                            <div className="mb-6">
+                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nombre del lugar</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Ej: Tienda de souvenirs, Restaurante..."
+                                    value={newWaypointTitle}
+                                    onChange={(e) => setNewWaypointTitle(e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                                    autoFocus
+                                />
+                            </div>
+
+                            <button 
+                                onClick={handleSaveWaypoint}
+                                disabled={!newWaypointTitle.trim()}
+                                className="w-full bg-blue-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:shadow-none active:scale-95 transition-all"
+                            >
+                                <Save size={18} /> Guardar Ubicación
+                            </button>
+                         </div>
                     </div>
                 )}
             </main>
