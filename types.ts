@@ -53,3 +53,10 @@ export interface WeatherData {
     temperature_2m_min: number[];
   };
 }
+
+export interface NotificationSettings {
+  enabled: boolean;
+  activityAlerts: boolean;
+  criticalAlerts: boolean;
+  minutesBefore: number;
+}

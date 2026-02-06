@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
     CalendarClock, Map as MapIcon, Wallet, BookOpen, Anchor, 
-    Headphones, X, Play, Square, Navigation 
+    Headphones, X, Play, Square, Navigation, Settings, Bell, BellRing, Clock 
 } from 'lucide-react';
 import { Timeline } from './components/Timeline';
 import { Budget } from './components/Budget';
 import { Guide } from './components/Guide';
 import { MapComponent } from './components/MapComponent';
 import { INITIAL_ITINERARY, SHIP_ONBOARD_TIME } from './constants';
-import { ItineraryItem, UserLocation, Coords } from './types';
+import { ItineraryItem, UserLocation, Coords, NotificationSettings } from './types';
 
 const App: React.FC = () => {
     const [itinerary, setItinerary] = useState<ItineraryItem[]>(INITIAL_ITINERARY);
@@ -18,6 +18,94 @@ const App: React.FC = () => {
     const [countdown, setCountdown] = useState('00h 00m 00s');
     const [audioGuideActivity, setAudioGuideActivity] = useState<ItineraryItem | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    
+    // Notification State
+    const [showSettings, setShowSettings] = useState(false);
+    const [sentNotifications, setSentNotifications] = useState<Set<string>>(new Set());
+    const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() => {
+        try {
+            const saved = localStorage.getItem('barcelona_notification_settings');
+            return saved ? JSON.parse(saved) : {
+                enabled: false,
+                activityAlerts: true,
+                criticalAlerts: true,
+                minutesBefore: 15
+            };
+        } catch {
+            return { enabled: false, activityAlerts: true, criticalAlerts: true, minutesBefore: 15 };
+        }
+    });
+
+    // Save Settings
+    useEffect(() => {
+        localStorage.setItem('barcelona_notification_settings', JSON.stringify(notificationSettings));
+    }, [notificationSettings]);
+
+    // Request Permissions
+    const requestNotificationPermission = async () => {
+        if (!('Notification' in window)) return;
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            setNotificationSettings(prev => ({ ...prev, enabled: true }));
+            new Notification("Notificaciones Activas", { 
+                body: "Te avisaremos de los eventos importantes de tu escala.",
+                icon: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgTO8Unw1Rh2yVa2JGn5EqDKRRzmCWqYcp-Cfs83S-XE510ErtaNkBMj73Ucv0qXmgv_7NJRKH6olpiE1Bf4uBBln1jiHfaAKuk_RgrVaISXO1K6HJwZ30r8SqkyV1f7eCCLVlb1UXAry6yfi7k2rNhmJzjYjrE3jBwxFN5462NoLZRPU67Z792PDZUr2o/s192/Gemini_Generated_Image_gn7f5hgn7f5hgn7f.png"
+            });
+        }
+    };
+
+    // Notification Check Loop
+    useEffect(() => {
+        if (!notificationSettings.enabled || Notification.permission !== 'granted') return;
+
+        const checkInterval = setInterval(() => {
+            const now = new Date();
+            
+            itinerary.forEach(item => {
+                // Prevent duplicate alerts
+                if (sentNotifications.has(item.id) || item.completed) return;
+
+                const [h, m] = item.startTime.split(':').map(Number);
+                const itemTime = new Date();
+                itemTime.setHours(h, m, 0, 0);
+
+                const diffMinutes = (itemTime.getTime() - now.getTime()) / (1000 * 60);
+
+                // Check Trigger Conditions
+                const isCritical = item.notes === 'CRITICAL';
+                const timeWindow = notificationSettings.minutesBefore; // e.g. 15 mins
+
+                let shouldNotify = false;
+                let title = "";
+                let body = "";
+
+                // Logic: Notify if within window (e.g., between 14 and 15 mins remaining) 
+                // Using a range prevents missing the exact millisecond match
+                if (diffMinutes > 0 && diffMinutes <= timeWindow) {
+                    if (isCritical && notificationSettings.criticalAlerts) {
+                        shouldNotify = true;
+                        title = `⚠️ IMPORTANTE: ${item.title}`;
+                        body = `Quedan ${Math.ceil(diffMinutes)} min. ${item.keyDetails}`;
+                    } else if (notificationSettings.activityAlerts && !isCritical) {
+                        shouldNotify = true;
+                        title = `Próximo: ${item.title}`;
+                        body = `Comienza a las ${item.startTime}. ${item.locationName}`;
+                    }
+                }
+
+                if (shouldNotify) {
+                    new Notification(title, { 
+                        body, 
+                        icon: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgTO8Unw1Rh2yVa2JGn5EqDKRRzmCWqYcp-Cfs83S-XE510ErtaNkBMj73Ucv0qXmgv_7NJRKH6olpiE1Bf4uBBln1jiHfaAKuk_RgrVaISXO1K6HJwZ30r8SqkyV1f7eCCLVlb1UXAry6yfi7k2rNhmJzjYjrE3jBwxFN5462NoLZRPU67Z792PDZUr2o/s192/Gemini_Generated_Image_gn7f5hgn7f5hgn7f.png",
+                        vibrate: [200, 100, 200]
+                    } as any);
+                    setSentNotifications(prev => new Set(prev).add(item.id));
+                }
+            });
+        }, 30000); // Check every 30 seconds
+
+        return () => clearInterval(checkInterval);
+    }, [notificationSettings, itinerary, sentNotifications]);
 
     // Countdown Timer Logic
     useEffect(() => {
@@ -88,7 +176,9 @@ const App: React.FC = () => {
             {/* Header */}
             <header className="bg-blue-950 text-white p-4 shadow-xl z-20 flex justify-between items-center shrink-0">
                 <div className="flex items-center">
-                    <Anchor className="mr-3 text-amber-500" size={24} />
+                    <button onClick={() => setShowSettings(true)} className="mr-3 text-blue-300 hover:text-white transition-colors">
+                         <Settings size={24} />
+                    </button>
                     <div>
                         <h1 className="font-black text-[10px] uppercase tracking-[0.2em] text-blue-300">Escala Barcelona</h1>
                         <p className="text-[12px] font-bold text-white/90 leading-tight">12 Abril 2026</p>
@@ -158,6 +248,131 @@ const App: React.FC = () => {
                                 {isPlaying ? <Square size={18} fill="white" /> : <Play size={18} fill="white" />}
                                 {isPlaying ? 'Detener' : 'Escuchar'}
                             </button>
+                        </div>
+                    </div>
+                )}
+                
+                {/* Settings Modal */}
+                {showSettings && (
+                    <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-blue-950/40 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-6 animate-in slide-in-from-bottom-10 duration-300">
+                             <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-black text-lg text-blue-900 uppercase tracking-tight flex items-center gap-2">
+                                    <Settings size={20} /> Preferencias
+                                </h3>
+                                <button onClick={() => setShowSettings(false)} className="bg-slate-100 p-2 rounded-full text-slate-500 hover:bg-slate-200 transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-6">
+                                {/* Master Switch */}
+                                <div className={`p-4 rounded-2xl flex items-center justify-between border transition-colors ${notificationSettings.enabled ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-100 border-slate-200'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-full ${notificationSettings.enabled ? 'bg-white/20' : 'bg-white text-slate-400'}`}>
+                                            <BellRing size={20} className={notificationSettings.enabled ? 'text-white' : ''} />
+                                        </div>
+                                        <div>
+                                            <p className={`text-sm font-bold ${notificationSettings.enabled ? 'text-white' : 'text-slate-900'}`}>Notificaciones</p>
+                                            <p className={`text-[10px] leading-tight ${notificationSettings.enabled ? 'text-blue-100' : 'text-slate-500'}`}>
+                                                {notificationSettings.enabled ? 'Activadas' : 'Desactivadas'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={notificationSettings.enabled ? () => setNotificationSettings(p => ({...p, enabled: false})) : requestNotificationPermission} 
+                                        className={`w-12 h-7 rounded-full transition-all relative ${notificationSettings.enabled ? 'bg-white/30' : 'bg-slate-300'}`}
+                                    >
+                                        <div className={`absolute top-1 left-1 bg-white w-5 h-5 rounded-full transition-transform shadow-sm ${notificationSettings.enabled ? 'translate-x-5' : ''}`}></div>
+                                    </button>
+                                </div>
+
+                                {notificationSettings.enabled && (
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
+                                        
+                                        {/* Event Types Group */}
+                                        <div>
+                                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Tipos de Alerta</h4>
+                                            <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                                                {/* Critical */}
+                                                <div className="flex items-center justify-between p-4 border-b border-slate-100">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="bg-rose-100 p-2 rounded-xl text-rose-600">
+                                                            <Anchor size={18} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-slate-900">Eventos Críticos</p>
+                                                            <p className="text-[10px] text-slate-500">Embarque, Shuttle, Horarios límite</p>
+                                                        </div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => setNotificationSettings(p => ({...p, criticalAlerts: !p.criticalAlerts}))}
+                                                        className={`w-10 h-6 rounded-full transition-colors relative ${notificationSettings.criticalAlerts ? 'bg-rose-500' : 'bg-slate-200'}`}
+                                                    >
+                                                        <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${notificationSettings.criticalAlerts ? 'translate-x-4' : ''}`}></div>
+                                                    </button>
+                                                </div>
+
+                                                {/* General Activities */}
+                                                <div className="flex items-center justify-between p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="bg-blue-100 p-2 rounded-xl text-blue-600">
+                                                            <CalendarClock size={18} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-slate-900">Actividades</p>
+                                                            <p className="text-[10px] text-slate-500">Inicio de visitas y paseos</p>
+                                                        </div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => setNotificationSettings(p => ({...p, activityAlerts: !p.activityAlerts}))}
+                                                        className={`w-10 h-6 rounded-full transition-colors relative ${notificationSettings.activityAlerts ? 'bg-blue-500' : 'bg-slate-200'}`}
+                                                    >
+                                                        <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${notificationSettings.activityAlerts ? 'translate-x-4' : ''}`}></div>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Timing Control */}
+                                        <div>
+                                            <div className="flex justify-between items-end mb-3 ml-1">
+                                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Antelación</h4>
+                                                <span className="text-xs font-black text-blue-900 bg-blue-100 px-2 py-0.5 rounded-md">{notificationSettings.minutesBefore} min</span>
+                                            </div>
+                                            
+                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                                <input 
+                                                    type="range" 
+                                                    min="5" 
+                                                    max="60" 
+                                                    step="5"
+                                                    value={notificationSettings.minutesBefore}
+                                                    onChange={(e) => setNotificationSettings(p => ({...p, minutesBefore: parseInt(e.target.value)}))}
+                                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 mb-4"
+                                                />
+                                                <div className="flex justify-between gap-2">
+                                                    {[5, 15, 30, 60].map(val => (
+                                                        <button 
+                                                            key={val}
+                                                            onClick={() => setNotificationSettings(p => ({...p, minutesBefore: val}))}
+                                                            className={`flex-1 py-2 rounded-xl text-[10px] font-bold transition-all ${
+                                                                notificationSettings.minutesBefore === val 
+                                                                ? 'bg-blue-600 text-white shadow-md' 
+                                                                : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            {val}m
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}

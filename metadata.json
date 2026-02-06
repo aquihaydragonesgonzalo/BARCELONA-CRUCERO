@@ -1,5 +1,5 @@
 {
-  "name": "BARCELONA CRUCERO",
+  "name": "BARCELONA CRUCERO 20260205",
   "description": "A comprehensive PWA guide for a cruise stopover in Barcelona, featuring itinerary tracking, interactive maps, budget management, and local guide tools.",
   "requestFramePermissions": [
     "geolocation"
