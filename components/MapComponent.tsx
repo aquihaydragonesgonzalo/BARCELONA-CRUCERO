@@ -128,12 +128,13 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             // Create a container for the popup content
             const popupContent = document.createElement('div');
             popupContent.style.padding = '4px';
-            popupContent.style.minWidth = '140px';
+            popupContent.style.minWidth = '160px';
             popupContent.style.fontFamily = "'Roboto Condensed', sans-serif";
             
             popupContent.innerHTML = `
                 <h3 style="margin: 0 0 4px 0; font-weight: 800; color: #7c3aed; font-size: 14px; text-transform: uppercase;">${wp.title}</h3>
-                <p style="margin: 0 0 8px 0; font-size: 11px; color: #64748b;">Añadido por ti</p>
+                ${wp.description ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #334155; line-height: 1.3;">${wp.description}</p>` : ''}
+                <p style="margin: 0 0 8px 0; font-size: 10px; color: #94a3b8; font-style: italic;">Añadido por ti</p>
             `;
 
             if (onDeleteWaypoint) {

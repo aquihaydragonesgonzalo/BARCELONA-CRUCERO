@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     CalendarClock, Map as MapIcon, Wallet, BookOpen, Anchor, 
-    Headphones, X, Play, Square, Navigation, Settings, Bell, BellRing, Clock, MapPin, Save 
+    Headphones, X, Play, Square, Navigation, Settings, Bell, BellRing, Clock, MapPin, Save, AlignLeft 
 } from 'lucide-react';
 import { Timeline } from './components/Timeline';
 import { Budget } from './components/Budget';
@@ -48,6 +48,7 @@ const App: React.FC = () => {
     const [isAddWaypointModalOpen, setIsAddWaypointModalOpen] = useState(false);
     const [newWaypointCoords, setNewWaypointCoords] = useState<Coords | null>(null);
     const [newWaypointTitle, setNewWaypointTitle] = useState('');
+    const [newWaypointDescription, setNewWaypointDescription] = useState('');
 
     // Save Settings & Waypoints
     useEffect(() => {
@@ -192,6 +193,7 @@ const App: React.FC = () => {
     const handleMapClickForWaypoint = (coords: Coords) => {
         setNewWaypointCoords(coords);
         setNewWaypointTitle('');
+        setNewWaypointDescription('');
         setIsAddWaypointModalOpen(true);
     };
 
@@ -200,6 +202,7 @@ const App: React.FC = () => {
             const newWaypoint: CustomWaypoint = {
                 id: Date.now().toString(),
                 title: newWaypointTitle,
+                description: newWaypointDescription,
                 coords: newWaypointCoords,
                 timestamp: Date.now()
             };
@@ -435,7 +438,7 @@ const App: React.FC = () => {
                                 </button>
                             </div>
                             
-                            <div className="mb-6">
+                            <div className="mb-4">
                                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nombre del lugar</label>
                                 <input 
                                     type="text" 
@@ -444,6 +447,16 @@ const App: React.FC = () => {
                                     onChange={(e) => setNewWaypointTitle(e.target.value)}
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-300"
                                     autoFocus
+                                />
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Descripción (Opcional)</label>
+                                <textarea 
+                                    placeholder="Ej: Tienen buenos precios, baño limpio..."
+                                    value={newWaypointDescription}
+                                    onChange={(e) => setNewWaypointDescription(e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-600 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-300 resize-none h-24"
                                 />
                             </div>
 
